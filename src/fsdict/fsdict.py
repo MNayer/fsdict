@@ -1,5 +1,5 @@
 import json
-from utils import *
+from fsdict.utils import *
 from pathlib import Path
 
 
