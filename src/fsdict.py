@@ -1,5 +1,5 @@
 import json
-from src.utils import *
+from utils import *
 from pathlib import Path
 
 
