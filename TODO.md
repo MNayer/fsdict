@@ -1,0 +1,4 @@
+- [ ] Caching
+- [ ] Compression
+- [ ] Locking(?)
+- [ ] Use overlayfs to enable committing a certain state of an fsdict
