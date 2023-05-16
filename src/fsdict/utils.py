@@ -27,6 +27,27 @@ def copy(src, dst):
     shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
+def rmtree(path):
+    shutil.rmtree(path)
+
+
+def rmfile(path):
+    os.remove(path)
+
+
+def rmsymlink(path):
+    os.unlink(path)
+
+
+def rm(path):
+    if path.is_dir():
+        rmtree(path)
+    if path.is_symlink():
+        rmsymlink(path)
+    if path.is_file():
+        rmfile(path)
+
+
 def symlink(src, dst):
     os.symlink(src, dst)
 

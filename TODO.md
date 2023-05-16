@@ -1,5 +1,5 @@
-- [ ] Fix: Overwrite fsdict values by normal values not possible
 - [ ] Caching
 - [ ] Compression
 - [ ] Locking(?)
 - [ ] Use overlayfs to enable committing a certain state of an fsdict
+- [x] Fix: Overwrite fsdict values by normal values not possible
