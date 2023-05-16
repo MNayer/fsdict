@@ -4,8 +4,9 @@ from pathlib import Path
 
 
 class fsdict:
-    def __init__(self, path=None):
+    def __init__(self, path=None, overwrite=True):
         self.path = Path(path) if path else None
+        self.overwrite = overwrite
         if self.path != None:
             if not self.path.exists():
                 self.path.mkdir()
@@ -25,7 +26,9 @@ class fsdict:
         assert not self.dangling()
         key_path = self.__get_keypath(key)
         if key_path.exists():
-            rm(key_path)
+            if not self.overwrite:
+                return
+            del self[key]
         if isinstance(value, fsdict):
             if value.dangling():
                 key_path.mkdir()
