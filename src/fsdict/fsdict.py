@@ -34,6 +34,12 @@ class fsdict:
         else:
             fwrite_bytes(key_path, maybe_serialize(value))
 
+    def __delitem__(self, key):
+        assert not self.dangling()
+        key_path = self.__get_keypath(key)
+        if key_path.exists():
+            rm(key_path)
+
     def __repr__(self):
         return json.dumps(self.todict(), indent=2)
 
