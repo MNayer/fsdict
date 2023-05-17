@@ -19,9 +19,10 @@ class LazyValue:
 
 
 class fsdict:
-    def __init__(self, path=None, overwrite=True):
+    def __init__(self, path=None, overwrite=True, create_fsdict_on_keyerror=False):
         self.path = Path(path) if path else None
         self.overwrite = overwrite
+        self.create_fsdict_on_keyerror = create_fsdict_on_keyerror
         if self.path != None:
             if not self.path.exists():
                 self.path.mkdir()
@@ -68,9 +69,20 @@ class fsdict:
         assert isinstance(key, str)
         key_path = self.__get_path(key)
         if not key_path.exists():
-            raise KeyError(key_path.name)
+            if self.create_fsdict_on_keyerror:
+                return fsdict(
+                    key_path,
+                    overwrite=self.overwrite,
+                    create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
+                )
+            else:
+                raise KeyError(key_path.name)
         if self.__is_fsdict(key):
-            return fsdict(key_path)
+            return fsdict(
+                key_path,
+                overwrite=self.overwrite,
+                create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
+            )
         else:
             return maybe_deserialize(fread_bytes(key_path))
 
@@ -126,7 +138,11 @@ class fsdict:
         for key in self.keys():
             key_path = self.__get_path(key)
             if self.__is_fsdict(key):
-                dictionary[key] = fsdict(key_path).todict(lazy)
+                dictionary[key] = fsdict(
+                    key_path,
+                    overwrite=self.overwrite,
+                    create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
+                ).todict(lazy)
                 continue
             if lazy:
                 dictionary[key] = LazyValue(key_path)
