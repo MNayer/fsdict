@@ -27,6 +27,12 @@ class fsdict:
                 self.path.mkdir()
             assert self.path.is_dir()
 
+    def __len__(self):
+        return len(self.keys())
+
+    def __iter__(self):
+        yield from self.keys()
+
     def __contains__(self, key):
         assert not self.dangling()
         assert isinstance(key, str)
