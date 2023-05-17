@@ -27,6 +27,12 @@ class fsdict:
                 self.path.mkdir()
             assert self.path.is_dir()
 
+    def __contains__(self, key):
+        assert not self.dangling()
+        assert isinstance(key, str)
+        key_path = self.__get_path(key)
+        return key_path.exists()
+
     def __getitem__(self, selector):
         assert not self.dangling()
         if isinstance(selector, str):
@@ -122,11 +128,6 @@ class fsdict:
                 dictionary[key] = self[key]
         return dictionary
 
-    def has_key(self, key):
-        assert not self.dangling()
-        key_path = self.__get_path(key)
-        return key_path.exists()
-
     def keys(self, lazy=False):
         assert not self.dangling()
         keys = (keypath.name for keypath in self.__get_paths())
@@ -164,7 +165,7 @@ class fsdict:
 
     def __is_fsdict(self, key):
         assert not self.dangling()
-        if not self.has_key(key):
+        if not key in self:
             raise KeyError(key)
         key_path = self.path / key
         return key_path.is_dir()
