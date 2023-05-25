@@ -40,10 +40,10 @@ def rmsymlink(path):
 
 
 def rm(path):
-    if path.is_dir():
-        rmtree(path)
     if path.is_symlink():
         rmsymlink(path)
+    if path.is_dir():
+        rmtree(path)
     if path.is_file():
         rmfile(path)
 
