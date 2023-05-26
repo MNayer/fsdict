@@ -1,1 +1,1 @@
-from .fsdict import fsdict
+from .fsdict import fsdict, xfsdict

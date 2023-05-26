@@ -1,5 +1,10 @@
-- [ ] Caching
+- [ ] Bugfixes: xfsdict -> ```d["dir"] = xfsdict() -> dd = d["dir"] -> dd["foo"] = 5 -> d["dir"]["foo"]```
+- [ ] Overwrite keys for xfsdict (without _del_item)
+- [ ] Add requirements to setup
 - [ ] Compression
+- [ ] Caching
+- [ ] Handle slashes in keys correctly
+- [ ] Maybe use wildcards in keys(?)
 - [ ] Locking(?)
 - [ ] Use overlayfs to enable committing a certain state of an fsdict
 - [x] Fix: Overwrite fsdict values by normal values not possible

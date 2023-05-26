@@ -5,28 +5,96 @@ from pathlib import Path
 
 
 class LazyValue:
-    def __init__(self, path):
+    def __init__(self, basepath, path):
+        self.basepath = basepath
+        if isinstance(basepath, str):
+            self.basepath = Path(basepath)
         self.path = path
 
     def __repr__(self):
-        return f"<LazyValue @ {self.path}>"
+        return f"<LazyValue {self.path} @ {self.basepath}>"
 
     def __str__(self):
         return repr(self)
 
     def read(self):
-        return maybe_deserialize(fread_bytes(self.path))
+        raise NotImplementedError()
+        # TODO for compressed
+        # return maybe_deserialize(fread_bytes(self.path))
 
 
-class fsdict:
-    def __init__(self, path=None, overwrite=True, create_fsdict_on_keyerror=False):
-        self.path = Path(path) if path else None
+class genfsdict:
+    def __init__(
+        self, basepath=None, path="", overwrite=True, create_fsdict_on_keyerror=False
+    ):
+        self.basepath = Path(basepath) if basepath else None
+        self.path = Path(path)
         self.overwrite = overwrite
         self.create_fsdict_on_keyerror = create_fsdict_on_keyerror
-        if self.path != None:
-            if not self.path.exists():
-                self.path.mkdir()
-            assert self.path.is_dir()
+        if self.basepath != None and not self._fsdict_exists():
+            self._create_empty_fsdict()
+
+    def _fsdict_exists(self):
+        raise NotImplementedError()
+
+    def _del_item(self, key):
+        raise NotImplementedError()
+
+    def _is_fsdict(self, key):
+        raise NotImplementedError()
+
+    def _read_keyvalue(self, key):
+        raise NotImplementedError()
+
+    def _write_keyvalue(self, key, value):
+        raise NotImplementedError()
+
+    def _create_empty_fsdict(self, key=""):
+        raise NotImplementedError()
+
+    def _link_fsdict(self, key, other):
+        raise NotImplementedError()
+
+    def _has_key(self, key):
+        return key in self.keys()
+
+    def _get_item(self, key):
+        assert not self.dangling()
+        assert self._valid_keytype(key)
+        if not self._has_key(key):
+            if self.create_fsdict_on_keyerror:
+                return self.__class__(
+                    self.basepath,
+                    self.path / key,
+                    overwrite=self.overwrite,
+                    create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
+                )
+            else:
+                raise KeyError(key)
+        if self._is_fsdict(key):
+            return self.__class__(
+                self.basepath,
+                self.path / key,
+                overwrite=self.overwrite,
+                create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
+            )
+        return self._read_keyvalue(key)
+
+    def _set_item(self, key, value):
+        if self._has_key(key):
+            if not self.overwrite:
+                return
+            del self[key]
+        if isinstance(value, self.__class__):
+            if value.dangling():
+                self._create_empty_fsdict(key)
+                return
+            self._link_fsdict(key, value)
+            return
+        self._write_keyvalue(key, value)
+
+    def _valid_keytype(self, key):
+        return isinstance(key, str)
 
     def __len__(self):
         return len(self.keys())
@@ -36,127 +104,46 @@ class fsdict:
 
     def __contains__(self, key):
         assert not self.dangling()
-        assert isinstance(key, str)
-        key_path = self.__get_path(key)
-        return key_path.exists()
+        assert self._valid_keytype(key)
+        return self._has_key(key)
 
-    def __getitem__(self, selector):
+    def __getitem__(self, key):
         assert not self.dangling()
-        if isinstance(selector, str):
-            return self.__get_item(selector)
-        elif isinstance(selector, types.FunctionType):
-            return self.__get_items(selector)
+        return self._get_item(key)
 
-    def __setitem__(self, selector, value):
+    def __setitem__(self, key, value):
         assert not self.dangling()
-        if isinstance(selector, str):
-            self.__set_item(selector, value)
-        elif isinstance(selector, types.FunctionType):
-            self.__set_items(selector, value)
+        self._set_item(key, value)
 
-    def __delitem__(self, selector):
+    def __delitem__(self, key):
         assert not self.dangling()
-        if isinstance(selector, str):
-            self.__del_item(selector)
-        elif isinstance(selector, types.FunctionType):
-            self.__del_items(selector)
+        if not self._has_key(key):
+            raise KeyError(key)
+        self._del_item(key)
 
     def __repr__(self):
         return json.dumps(self.todict(), indent=2, default=repr)
 
-    def __get_item(self, key):
-        assert not self.dangling()
-        assert isinstance(key, str)
-        key_path = self.__get_path(key)
-        if not key_path.exists():
-            if self.create_fsdict_on_keyerror:
-                return fsdict(
-                    key_path,
-                    overwrite=self.overwrite,
-                    create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
-                )
-            else:
-                raise KeyError(key_path.name)
-        if self.__is_fsdict(key):
-            return fsdict(
-                key_path,
-                overwrite=self.overwrite,
-                create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
-            )
-        else:
-            return maybe_deserialize(fread_bytes(key_path))
-
-    def __get_items(self, selector):
-        assert not self.dangling()
-        assert isinstance(selector, types.FunctionType)
-        keys = filter(selector, self.keys())
-        yield from (self[key] for key in keys)
-
-    def __set_item(self, key, value):
-        key_path = self.__get_path(key)
-        if key_path.exists():
-            if not self.overwrite:
-                return
-            del self[key]
-        if isinstance(value, fsdict):
-            if value.dangling():
-                key_path.mkdir()
-            else:
-                value.copy(key_path)
-        else:
-            fwrite_bytes(key_path, maybe_serialize(value))
-
-    def __set_items(self, selector, value):
-        assert not self.dangling()
-        assert isinstance(selector, types.FunctionType)
-        keys = filter(selector, self.keys())
-        for key in keys:
-            self[key] = value
-
-    def __del_item(self, key):
-        assert not self.dangling()
-        key_path = self.__get_path(key)
-        if key_path.exists():
-            rm(key_path)
-
-    def __del_items(self, selector):
-        assert not self.dangling()
-        assert isinstance(selector, types.FunctionType)
-        keys = filter(selector, self.keys())
-        for key in keys:
-            del self[key]
-
-    def dangling(self):
-        return self.path == None
-
-    def setpath(self, path):
-        self.path = Path(path)
+    def keys(self):
+        raise NotImplementedError()
 
     def todict(self, lazy=True):
         assert not self.dangling()
         dictionary = dict()
         for key in self.keys():
-            key_path = self.__get_path(key)
-            if self.__is_fsdict(key):
-                dictionary[key] = fsdict(
-                    key_path,
+            if self._is_fsdict(key):
+                dictionary[key] = self.__class__(
+                    self.basepath,
+                    self.path / key,
                     overwrite=self.overwrite,
                     create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
                 ).todict(lazy)
                 continue
             if lazy:
-                dictionary[key] = LazyValue(key_path)
+                dictionary[key] = LazyValue(self.basepath, self.path / key)
             else:
                 dictionary[key] = self[key]
         return dictionary
-
-    def keys(self, lazy=False):
-        assert not self.dangling()
-        keys = (keypath.name for keypath in self.__get_paths())
-        if lazy:
-            return keys
-        else:
-            return list(keys)
 
     def values(self, lazy=True):
         assert not self.dangling()
@@ -171,23 +158,94 @@ class fsdict:
         for key in self.keys():
             yield key, self[key]
 
-    def copy(self, dst_path):
-        assert not self.dangling()
-        symlink(self.path, dst_path)
+    def dangling(self):
+        return self.basepath == None
 
-    def __get_path(self, key):
-        assert not self.dangling()
-        if isinstance(key, str):
-            return self.path / key
-        raise TypeError(f"Value of key '{key}' must be of type 'str' not '{type(key)}'")
+    def setpath(self, basepath):
+        self.basepath = Path(basepath)
 
-    def __get_paths(self):
-        assert not self.dangling()
-        return self.path.glob("*")
 
-    def __is_fsdict(self, key):
-        assert not self.dangling()
-        if not key in self:
-            raise KeyError(key)
-        key_path = self.path / key
+class fsdict(genfsdict):
+    def _fsdict_exists(self):
+        path = self.basepath / self.path
+        return path.exists()
+
+    def _del_item(self, key):
+        key_path = self.basepath / self.path / key
+        rm(key_path)
+
+    def _is_fsdict(self, key):
+        key_path = self.basepath / self.path / key
         return key_path.is_dir()
+
+    def _read_keyvalue(self, key):
+        key_path = self.basepath / self.path / key
+        return maybe_deserialize(fread_bytes(key_path))
+
+    def _write_keyvalue(self, key, value):
+        key_path = self.basepath / self.path / key
+        fwrite_bytes(key_path, maybe_serialize(value))
+
+    def _create_empty_fsdict(self, key=""):
+        key_path = self.basepath / self.path / key
+        key_path.mkdir()
+
+    def _link_fsdict(self, key, other):
+        src_path = other.basepath
+        dst_path = self.basepath / self.path / key
+        symlink(src_path, dst_path)
+
+    def _has_key(self, key):
+        key_path = self.basepath / self.path / key
+        return key_path.exists()
+
+    def keys(self):
+        assert not self.dangling()
+        path = self.basepath / self.path
+        keys = [keypath.name for keypath in path.glob("*")]
+        return keys
+
+
+class xfsdict(genfsdict):
+    def _fsdict_exists(self):
+        if self.path == Path("."):
+            return archive_exists(self.basepath)
+        return archive_has_member(self.basepath, self.path)
+
+    def _del_item(self, key):
+        raise NotImplementedError(
+            f"Deleting items is not possible for {self.__class__}."
+        )
+
+    def _is_fsdict(self, key):
+        path = self.path / key
+        return archive_member_isdir(self.basepath, path)
+
+    def _read_keyvalue(self, key):
+        path = self.path / key
+        return maybe_deserialize(archive_member_read(self.basepath, path))
+
+    def _write_keyvalue(self, key, value):
+        path = self.path / key
+        archive_member_write(self.basepath, path, maybe_serialize(value))
+
+    def _create_empty_fsdict(self, key=""):
+        path = self.path / key
+        if path == Path(""):
+            archive_create(self.basepath)
+            return
+        archive_member_createdir(self.basepath, path)
+
+    def _link_fsdict(self, key, other):
+        raise NotImplementedError(f"Symlinks are not possible for {self.__class__}.")
+
+    def keys(self):
+        assert not self.dangling()
+        paths = archive_getmembers(self.basepath)
+        paths = map(Path, paths)
+        paths = filter(lambda path: path.is_relative_to(self.path), paths)
+        paths = map(lambda path: path.relative_to(self.path), paths)
+        paths = filter(lambda path: path != Path(""), paths)
+        paths = map(lambda path: path.parts[0], paths)
+        keys = map(str, paths)
+        return list(set(keys))
