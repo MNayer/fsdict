@@ -6,13 +6,13 @@ from pathlib import Path
 
 class LazyValue:
     def __init__(self, basepath, path):
-        self.basepath = basepath
+        self._basepath = basepath
         if isinstance(basepath, str):
-            self.basepath = Path(basepath)
-        self.path = path
+            self._basepath = Path(basepath)
+        self._path = path
 
     def __repr__(self):
-        return f"<LazyValue {self.path} @ {self.basepath}>"
+        return f"<LazyValue {self._path} @ {self._basepath}>"
 
     def __str__(self):
         return repr(self)
@@ -26,12 +26,20 @@ class genfsdict:
     def __init__(
         self, basepath=None, path="", overwrite=True, create_fsdict_on_keyerror=False
     ):
-        self.basepath = Path(basepath) if basepath else None
-        self.path = Path(path)
+        self._basepath = Path(basepath) if basepath else None
+        self._path = Path(path)
         self.overwrite = overwrite
         self.create_fsdict_on_keyerror = create_fsdict_on_keyerror
-        if self.basepath != None and not self._fsdict_exists():
+        if self._basepath != None and not self._fsdict_exists():
             self._create_empty_fsdict()
+
+    @property
+    def abspath(self):
+        return self._basepath / self._path
+
+    @property
+    def relpath(self):
+        return self._path
 
     def _fsdict_exists(self):
         raise NotImplementedError()
@@ -63,8 +71,8 @@ class genfsdict:
         if not self._has_key(key):
             if self.create_fsdict_on_keyerror:
                 return self.__class__(
-                    self.basepath,
-                    self.path / key,
+                    self._basepath,
+                    self._path / key,
                     overwrite=self.overwrite,
                     create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
                 )
@@ -72,8 +80,8 @@ class genfsdict:
                 raise KeyError(key)
         if self._is_fsdict(key):
             return self.__class__(
-                self.basepath,
-                self.path / key,
+                self._basepath,
+                self._path / key,
                 overwrite=self.overwrite,
                 create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
             )
@@ -132,14 +140,14 @@ class genfsdict:
         for key in self.keys():
             if self._is_fsdict(key):
                 dictionary[key] = self.__class__(
-                    self.basepath,
-                    self.path / key,
+                    self._basepath,
+                    self._path / key,
                     overwrite=self.overwrite,
                     create_fsdict_on_keyerror=self.create_fsdict_on_keyerror,
                 ).todict(lazy)
                 continue
             if lazy:
-                dictionary[key] = LazyValue(self.basepath, self.path / key)
+                dictionary[key] = LazyValue(self._basepath, self._path / key)
             else:
                 dictionary[key] = self[key]
         return dictionary
@@ -158,48 +166,48 @@ class genfsdict:
             yield key, self[key]
 
     def dangling(self):
-        return self.basepath == None
+        return self._basepath == None
 
     def setpath(self, basepath):
-        self.basepath = Path(basepath)
+        self._basepath = Path(basepath)
 
 
 class fsdict(genfsdict):
     def _fsdict_exists(self):
-        path = self.basepath / self.path
+        path = self._basepath / self._path
         return path.exists()
 
     def _del_item(self, key):
-        key_path = self.basepath / self.path / key
+        key_path = self._basepath / self._path / key
         rm(key_path)
 
     def _is_fsdict(self, key):
-        key_path = self.basepath / self.path / key
+        key_path = self._basepath / self._path / key
         return key_path.is_dir()
 
     def _read_keyvalue(self, key):
-        key_path = self.basepath / self.path / key
+        key_path = self._basepath / self._path / key
         return maybe_deserialize(fread_bytes(key_path))
 
     def _write_keyvalue(self, key, value):
-        key_path = self.basepath / self.path / key
+        key_path = self._basepath / self._path / key
         fwrite_bytes(key_path, maybe_serialize(value))
 
     def _create_empty_fsdict(self, key=""):
-        key_path = self.basepath / self.path / key
+        key_path = self._basepath / self._path / key
         key_path.mkdir()
 
     def _link_fsdict(self, key, other):
         src_path = other.basepath / other.path
-        dst_path = self.basepath / self.path / key
+        dst_path = self._basepath / self._path / key
         symlink(src_path, dst_path)
 
     def _has_key(self, key):
-        key_path = self.basepath / self.path / key
+        key_path = self._basepath / self._path / key
         return key_path.exists()
 
     def keys(self):
         assert not self.dangling()
-        path = self.basepath / self.path
+        path = self._basepath / self._path
         keys = [keypath.name for keypath in path.glob("*")]
         return keys
