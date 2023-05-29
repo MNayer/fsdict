@@ -18,9 +18,8 @@ class LazyValue:
         return repr(self)
 
     def read(self):
+        # TODO
         raise NotImplementedError()
-        # TODO for compressed
-        # return maybe_deserialize(fread_bytes(self.path))
 
 
 class genfsdict:
@@ -204,48 +203,3 @@ class fsdict(genfsdict):
         path = self.basepath / self.path
         keys = [keypath.name for keypath in path.glob("*")]
         return keys
-
-
-class xfsdict(genfsdict):
-    def _fsdict_exists(self):
-        if self.path == Path("."):
-            return archive_exists(self.basepath)
-        return archive_has_member(self.basepath, self.path)
-
-    def _del_item(self, key):
-        raise NotImplementedError(
-            f"Deleting items is not possible for {self.__class__}."
-        )
-
-    def _is_fsdict(self, key):
-        path = self.path / key
-        return archive_member_isdir(self.basepath, path)
-
-    def _read_keyvalue(self, key):
-        path = self.path / key
-        return maybe_deserialize(archive_member_read(self.basepath, path))
-
-    def _write_keyvalue(self, key, value):
-        path = self.path / key
-        archive_member_write(self.basepath, path, maybe_serialize(value))
-
-    def _create_empty_fsdict(self, key=""):
-        path = self.path / key
-        if path == Path(""):
-            archive_create(self.basepath)
-            return
-        archive_member_createdir(self.basepath, path)
-
-    def _link_fsdict(self, key, other):
-        raise NotImplementedError(f"Symlinks are not possible for {self.__class__}.")
-
-    def keys(self):
-        assert not self.dangling()
-        paths = archive_getmembers(self.basepath)
-        paths = map(Path, paths)
-        paths = filter(lambda path: path.is_relative_to(self.path), paths)
-        paths = map(lambda path: path.relative_to(self.path), paths)
-        paths = filter(lambda path: path != Path(""), paths)
-        paths = map(lambda path: path.parts[0], paths)
-        keys = map(str, paths)
-        return list(set(keys))

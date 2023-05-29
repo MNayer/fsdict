@@ -1,6 +1,3 @@
-- [ ] Bugfixes: xfsdict -> ```d["dir"] = xfsdict() -> dd = d["dir"] -> dd["foo"] = 5 -> d["dir"]["foo"]```
-- [ ] Overwrite keys for xfsdict (without _del_item)
-- [ ] Add requirements to setup
 - [ ] Compression
 - [ ] Caching
 - [ ] Handle slashes in keys correctly
