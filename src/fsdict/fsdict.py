@@ -198,7 +198,7 @@ class fsdict(genfsdict):
         key_path.mkdir()
 
     def _link_fsdict(self, key, other):
-        src_path = other.basepath / other.path
+        src_path = other._basepath / other._path
         dst_path = self._basepath / self._path / key
         symlink(src_path, dst_path)
 
