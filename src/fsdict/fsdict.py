@@ -134,6 +134,9 @@ class genfsdict:
     def keys(self):
         raise NotImplementedError()
 
+    def copy_from(self, source):
+        raise NotImplementedError()
+
     def todict(self, lazy=True):
         assert not self.dangling()
         dictionary = dict()
@@ -211,3 +214,10 @@ class fsdict(genfsdict):
         path = self._basepath / self._path
         keys = [keypath.name for keypath in path.glob("*")]
         return keys
+
+    def copy_from(self, source):
+        if isinstance(source, str):
+            source = Path(source)
+        if isinstance(source, fsdict):
+            source = Path(source.abspath)
+        copy(source, self.abspath)
