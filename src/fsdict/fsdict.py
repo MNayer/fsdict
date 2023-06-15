@@ -137,6 +137,12 @@ class genfsdict:
     def copy_from(self, source):
         raise NotImplementedError()
 
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
     def todict(self, lazy=True):
         assert not self.dangling()
         dictionary = dict()
