@@ -209,7 +209,8 @@ class fsdict(genfsdict):
     def _link_fsdict(self, key, other):
         src_path = other._basepath / other._path
         dst_path = self._basepath / self._path / key
-        symlink(src_path, dst_path)
+        rel_path = os.path.relpath(src_path, self._basepath / self._path)
+        symlink(rel_path, dst_path)
 
     def _has_key(self, key):
         key_path = self._basepath / self._path / key
